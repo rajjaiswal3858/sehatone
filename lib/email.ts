@@ -1,6 +1,8 @@
 import type { InquiryInput } from "./validation";
 import { site } from "./site";
 
+const DEFAULT_FROM = "SEHATONE <noreply@sehatone.co.in>";
+
 type SendResult = "sent" | "skipped" | "failed";
 
 interface Mail {
@@ -17,9 +19,9 @@ const esc = (s: string) =>
 
 async function send(mail: Mail): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!key || !from) {
-    console.warn(`[email] RESEND_API_KEY / EMAIL_FROM not set — skipped "${mail.subject}" to ${mail.to.join(", ")}`);
+  const from = process.env.EMAIL_FROM || DEFAULT_FROM;
+  if (!key) {
+    console.warn(`[email] RESEND_API_KEY not set — skipped "${mail.subject}" to ${mail.to.join(", ")}`);
     if (process.env.NODE_ENV !== "production") console.info(mail.text);
     return "skipped";
   }
@@ -67,11 +69,11 @@ const row = (label: string, value: string) =>
   `<tr><td style="padding:9px 0;border-bottom:1px solid #EEE;color:#57636F;font-size:13px;width:150px;vertical-align:top">${esc(label)}</td>
 <td style="padding:9px 0;border-bottom:1px solid #EEE;font-size:14px;vertical-align:top">${value}</td></tr>`;
 
-export async function sendInquiryEmails(d: InquiryInput, id: string, createdAt: Date) {
+export async function sendInquiryEmails(d: InquiryInput, id: string, createdAt: Date, { confirmCustomer = true } = {}) {
   const fullPhone = `${d.countryCode}${d.phone}`;
   const waNumber = fullPhone.replace(/\D/g, "");
   const when = createdAt.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
-  const business = (process.env.BUSINESS_EMAIL || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const business = (process.env.BUSINESS_EMAIL || site.email).split(",").map((s) => s.trim()).filter(Boolean);
 
   const fields: [string, string][] = [
     ["Name", d.fullName],
@@ -119,7 +121,7 @@ ${fields.map(([l, v]) => row(l, l === "Email" ? `<a href="mailto:${esc(v)}" styl
           idempotencyKey: `${id}-team`,
         })
       : (console.warn("[email] BUSINESS_EMAIL not set — team notification skipped"), Promise.resolve<SendResult>("skipped")),
-    send({
+    !confirmCustomer ? Promise.resolve<SendResult>("skipped") : send({
       to: [d.email],
       subject: "Thank you for contacting SEHATONE",
       html: customerHtml,

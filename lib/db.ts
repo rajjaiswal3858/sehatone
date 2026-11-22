@@ -5,7 +5,8 @@ let client: Client | null = null;
 let schemaReady: Promise<void> | null = null;
 
 function getUrl() {
-  const url = process.env.DATABASE_URL;
+  // TURSO_* are the names the Vercel Marketplace integration creates
+  const url = process.env.DATABASE_URL || process.env.TURSO_DATABASE_URL;
   if (url) return url;
   if (process.env.NODE_ENV === "production" && !process.env.ALLOW_FILE_DB) {
     throw new Error("DATABASE_URL is not configured. Leads cannot be stored.");
@@ -16,7 +17,7 @@ function getUrl() {
 
 export function db(): Client {
   if (!client) {
-    client = createClient({ url: getUrl(), authToken: process.env.DATABASE_AUTH_TOKEN });
+    client = createClient({ url: getUrl(), authToken: process.env.DATABASE_AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN });
   }
   return client;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
 import { db, ensureSchema } from "@/lib/db";
-import { validateInquiry } from "@/lib/validation";
+import { validateInquiry, type InquiryInput } from "@/lib/validation";
 import { sendInquiryEmails } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -24,6 +24,37 @@ function clientIp(req: Request) {
 }
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+
+// Best-effort, per-instance limit for when the database (and so the real rate limit) is down.
+const fallbackHits = new Map<string, number[]>();
+
+function fallbackLimited(ipHash: string) {
+  const since = Date.now() - RATE_WINDOW_MIN * 60_000;
+  const hits = (fallbackHits.get(ipHash) ?? []).filter((t) => t > since);
+  if (hits.length >= RATE_MAX) return true;
+  if (fallbackHits.size > 5_000) fallbackHits.clear();
+  fallbackHits.set(ipHash, [...hits, Date.now()]);
+  return false;
+}
+
+/**
+ * The lead couldn't be stored, so email is the only copy: succeed only if the team got it.
+ * No customer confirmation here, as without the database it could be abused to mail strangers.
+ */
+async function deliverWithoutDatabase(d: InquiryInput, ipHash: string) {
+  if (fallbackLimited(ipHash)) {
+    return json(429, { ok: false, message: "Too many requests. Please try again later or contact us directly." });
+  }
+  const { notify } = await sendInquiryEmails(d, randomUUID(), new Date(), { confirmCustomer: false });
+  if (notify !== "sent") {
+    return json(503, { ok: false, message: "We couldn't submit your request online right now." });
+  }
+  return json(201, {
+    ok: true,
+    message: "Thank you. Your request has been received — our team will contact you shortly.",
+    confirmationSent: false,
+  });
+}
 
 export async function POST(req: Request) {
   // Same-origin check (browsers always send Origin on cross-site POSTs)
@@ -64,12 +95,13 @@ export async function POST(req: Request) {
   }
   const d = result.data;
 
+  const ipHash = createHash("sha256")
+    .update(`${process.env.IP_HASH_SALT || "sehatone"}:${clientIp(req)}`)
+    .digest("hex");
+
   try {
     await ensureSchema();
     const client = db();
-    const ipHash = createHash("sha256")
-      .update(`${process.env.IP_HASH_SALT || "sehatone"}:${clientIp(req)}`)
-      .digest("hex");
 
     // 1. Idempotent retry of the same submission (double-click / network retry)
     const existing = await client.execute({
@@ -135,8 +167,8 @@ export async function POST(req: Request) {
       confirmationSent: confirm === "sent",
     });
   } catch (err) {
-    console.error("[inquiry] failed", err);
-    return json(500, { ok: false, message: "Something went wrong on our side. Please try again in a moment." });
+    console.error("[inquiry] database unavailable — falling back to email only", err);
+    return deliverWithoutDatabase(d, ipHash);
   }
 }
 

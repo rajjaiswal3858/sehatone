@@ -7,11 +7,26 @@ import {
 } from "@/lib/validation";
 import { ArrowRight, Check } from "./icons";
 import { track } from "@/lib/analytics";
+import { site } from "@/lib/site";
 
 type State = "idle" | "submitting" | "success" | "error";
 
 const empty: InquiryInput = {
   fullName: "", countryCode: "+91", phone: "", email: "", organization: "", facilityType: "", message: "",
+};
+
+/** Pre-filled email, offered when the request couldn't be delivered. */
+const mailtoLink = (v: InquiryInput) => {
+  const body = [
+    `Name: ${v.fullName}`,
+    `Mobile: ${v.countryCode} ${v.phone}`,
+    `Email: ${v.email}`,
+    `Clinic / hospital: ${v.organization}`,
+    `Facility type: ${v.facilityType}`,
+    "",
+    v.message,
+  ].join("\r\n");
+  return `mailto:${site.email}?subject=${encodeURIComponent("SEHATONE demo request")}&body=${encodeURIComponent(body)}`;
 };
 
 const newKey = () =>
@@ -26,6 +41,7 @@ export function InquiryForm() {
   const [state, setState] = useState<State>("idle");
   const [msg, setMsg] = useState("");
   const [honey, setHoney] = useState("");
+  const [offerEmail, setOfferEmail] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const startedAt = useRef(0);
   const key = useRef("");
@@ -66,6 +82,7 @@ export function InquiryForm() {
 
     setState("submitting");
     setMsg("");
+    setOfferEmail(false);
     try {
       const res = await fetch("/api/inquiry", {
         method: "POST",
@@ -83,10 +100,12 @@ export function InquiryForm() {
         if (data.errors) setErrors(data.errors);
         track("form_error", { form: "demo_inquiry", status: res.status });
         setState("error");
+        setOfferEmail(res.status >= 500 || res.status === 429);
         setMsg(data.message || "We could not send your request. Please try again.");
       }
     } catch {
       setState("error");
+      setOfferEmail(true);
       setMsg("Network error — please check your connection and try again.");
     }
     requestAnimationFrame(() => statusRef.current?.focus());
@@ -202,6 +221,12 @@ export function InquiryForm() {
 
       <div ref={statusRef} tabIndex={-1} role="alert" aria-live="assertive" className={state === "error" ? "form-err" : "sr-only"}>
         {state === "error" ? msg : ""}
+        {state === "error" && offerEmail && (
+          <>
+            {" "}
+            <a href={mailtoLink(v)} style={{ textDecoration: "underline" }}>Email your request to {site.email}</a>
+          </>
+        )}
       </div>
     </form>
   );
