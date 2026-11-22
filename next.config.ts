@@ -12,6 +12,18 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   serverExternalPackages: ["@libsql/client", "libsql"],
+  // The production vercel.app alias is a duplicate of the real domain. /api is left alone
+  // because a cross-origin redirect would break form posts.
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!api/).*)",
+        has: [{ type: "host", value: "sehatone-three.vercel.app" }],
+        destination: "https://www.sehatone.co.in/:path",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       { source: "/(.*)", headers: securityHeaders },

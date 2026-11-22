@@ -41,7 +41,7 @@ Write these only when you can add real expertise. Thin articles hurt more than t
 ## 2. What's implemented ✅
 
 ### On-page
-- [x] Unique `<title>` (48–59 chars, keyword first, brand last) and meta description (≤160 chars) on every page
+- [x] Unique `<title>` (keyword first and brand last, except the home page, which leads with the brand for name searches) and meta description (≤160 chars) on every page
 - [x] Exactly one H1 per page and a heading outline with no skipped levels (verified automatically on all pages)
 - [x] Descriptive URLs (`/clinic-management-software`, `/hospital-management-software`, `/patient-queue-management-system`)
 - [x] Original, intent-specific copy on each landing page: problems, modules, who it's for, FAQ, CTA
@@ -50,7 +50,7 @@ Write these only when you can add real expertise. Thin articles hurt more than t
 - [x] Images: no raster photos; diagrams carry `role="img"` and descriptive `aria-label`s. Fake sample data in the mockups is marked `data-nosnippet`, so Google won't quote patient names in search results
 
 ### Technical
-- [x] Canonical URL on every page (absolute, using `NEXT_PUBLIC_SITE_URL`)
+- [x] Canonical URL on every page (absolute, using `canonicalUrl` in `lib/site.ts`)
 - [x] `sitemap.xml` (5 URLs with last-modified dates) and `robots.txt` (blocks `/api/`, points to the sitemap)
 - [x] **Indexing controls:** only the production deployment can be indexed. Vercel preview deploys get `noindex` and a `Disallow: /` robots.txt, and the 404 page is `noindex`
 - [x] Correct status codes: real 404s, and the API is excluded from crawling
@@ -90,12 +90,12 @@ No personal data (name, phone, email) is ever sent to Google Analytics.
 
 ## 3. Your action items ⚠️
 
-1. **Deploy on the final domain** and set `NEXT_PUBLIC_SITE_URL=https://yourdomain.com`. Pick one
-   version (with or without `www`) and redirect the other to it in Vercel → Domains.
+1. **Keep `www.sehatone.co.in` as the primary domain** in Vercel → Domains, with the non-www
+   version redirecting to it.
 2. **Google Search Console** (search.google.com/search-console)
    - Add a **Domain property** and verify with the DNS TXT record (recommended; it covers http/https and www).
      Alternatively use a URL-prefix property with the HTML tag: put the code in `NEXT_PUBLIC_GSC_VERIFICATION` and redeploy.
-   - Sitemaps → submit `https://yourdomain.com/sitemap.xml`.
+   - Sitemaps → submit `https://www.sehatone.co.in/sitemap.xml`.
    - URL Inspection → "Request indexing" for the home page and the three solution pages.
    - Check **Pages**, **Core Web Vitals** and **Enhancements** (breadcrumbs) after 1–2 weeks.
 3. **Google Analytics 4** (analytics.google.com)

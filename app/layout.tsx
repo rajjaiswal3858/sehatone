@@ -57,6 +57,7 @@ const siteGraph = [
     "@type": "Organization",
     "@id": `${site.url}/#organization`,
     name: site.name,
+    alternateName: ["SehatOne", "Sehat One"],
     url: site.url,
     logo: { "@type": "ImageObject", url: `${site.url}/logo.png`, width: 512, height: 512 },
     email: site.email,
@@ -73,8 +74,9 @@ const siteGraph = [
   {
     "@type": "WebSite",
     "@id": `${site.url}/#website`,
-    url: site.url,
+    url: `${site.url}/`,
     name: site.name,
+    alternateName: ["SehatOne", "Sehat One", "sehatone.co.in"],
     description: site.description,
     inLanguage: "en-IN",
     publisher: { "@id": `${site.url}/#organization` },

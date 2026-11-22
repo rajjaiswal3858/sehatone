@@ -7,7 +7,7 @@ import { Reveal } from "@/components/Reveal";
 import { JsonLd, pageMetadata, webPageLd, faqLd } from "@/lib/seo";
 
 const seo = {
-  title: "Clinic & Hospital Management Software | SEHATONE",
+  title: "SEHATONE | Clinic & Hospital Management Software",
   description:
     "Clinic and hospital management software for India: digital patient registration, reception and doctor dashboards, token queues, display screens and reports.",
   path: "/",

@@ -77,7 +77,7 @@ The table is created automatically on the first submission. Browse leads in the 
 ### c) Deploy: Vercel
 1. Push this folder to a GitHub repository.
 2. vercel.com → **Add New → Project** → import the repo (framework auto-detected: Next.js).
-3. **Settings → Environment Variables** (Production): `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_CONTACT_PHONE`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `RESEND_API_KEY`, `EMAIL_FROM`, `BUSINESS_EMAIL`, `IP_HASH_SALT` (any long random string).
+3. **Settings → Environment Variables** (Production): `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_CONTACT_PHONE`, `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `RESEND_API_KEY`, `EMAIL_FROM`, `BUSINESS_EMAIL`, `IP_HASH_SALT` (any long random string).
 4. Deploy. Submit a real test inquiry and check both inboxes plus the Turso table.
 
 ### d) Connect the domain (HTTPS is automatic)
@@ -87,7 +87,7 @@ The table is created automatically on the first submission. Browse leads in the 
    - `CNAME` record, host `www` → `cname.vercel-dns.com`
    (Use the exact values Vercel shows if they differ.)
 3. Vercel issues and renews the SSL certificate automatically once DNS resolves (minutes to a few hours). HSTS and security headers are already set in `next.config.ts`.
-4. Update `NEXT_PUBLIC_SITE_URL` to the final domain and redeploy so canonical URLs, sitemap and OG tags are correct.
+4. Keep `www.sehatone.co.in` as the primary domain. If that changes, update `canonicalUrl` in `lib/site.ts` and the redirect in `next.config.ts`, then redeploy.
 
 Keep the Resend DNS records alongside the Vercel ones; they don't conflict.
 

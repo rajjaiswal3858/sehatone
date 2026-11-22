@@ -1,16 +1,13 @@
-// Canonical site URL. Set NEXT_PUBLIC_SITE_URL in production; Vercel's production
-// domain is used as a fallback so canonicals never point at localhost in a deploy.
-const rawUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "") ||
-  "http://localhost:3000";
+// The one address Google should index. Deliberately not read from the environment, so a
+// hosting URL can never become the canonical. Must match the primary domain in Vercel (www).
+const canonicalUrl = "https://www.sehatone.co.in";
 
 export const site = {
   name: "SEHATONE",
   tagline: "Smart Healthcare Management System",
   description:
     "SEHATONE is clinic and hospital management software for patient registration, reception and doctor dashboards, token queues, live display screens and operational reports.",
-  url: rawUrl.replace(/\/$/, ""),
+  url: canonicalUrl,
   email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "business@sehatone.co.in",
   phone: process.env.NEXT_PUBLIC_CONTACT_PHONE || "",
   locale: "en_IN",
