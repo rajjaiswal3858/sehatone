@@ -3,7 +3,27 @@ import { site } from "./site";
 
 const DEFAULT_FROM = "SEHATONE <noreply@sehatone.co.in>";
 
+// Resend's shared sender. It can deliver only to the Resend account owner's address.
+const SHARED_FROM = "SEHATONE <onboarding@resend.dev>";
+
 type SendResult = "sent" | "skipped" | "failed";
+interface Outcome {
+  status: SendResult;
+  /** Fixed category, safe to show publicly: never contains provider text, addresses or keys. */
+  reason?: string;
+}
+
+/** Values pasted into hosting dashboards often arrive wrapped in quotes or whitespace. */
+const envValue = (v?: string) => (v ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+
+function failureReason(status: number, body: string) {
+  if (/only send testing emails/i.test(body)) return "recipient_not_account_owner";
+  if (/domain is not verified/i.test(body)) return "sender_not_verified";
+  if (/invalid .{0,3}from/i.test(body)) return "sender_invalid";
+  if (/not authorized to send emails from/i.test(body)) return "key_restricted_to_domain";
+  if (/api key is invalid/i.test(body) || status === 401) return "key_invalid";
+  return `provider_${status}`;
+}
 
 interface Mail {
   to: string[];
@@ -17,13 +37,18 @@ interface Mail {
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-async function send(mail: Mail): Promise<SendResult> {
-  const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || DEFAULT_FROM;
+async function send(mail: Mail, sender?: string): Promise<Outcome> {
+  const key = envValue(process.env.RESEND_API_KEY);
+  const from = sender || envValue(process.env.EMAIL_FROM) || DEFAULT_FROM;
   if (!key) {
     console.warn(`[email] RESEND_API_KEY not set — skipped "${mail.subject}" to ${mail.to.join(", ")}`);
     if (process.env.NODE_ENV !== "production") console.info(mail.text);
-    return "skipped";
+    return { status: "skipped", reason: "key_missing" };
+  }
+  // Checked up front: fetch quotes a malformed header, and so the key, in its error message.
+  if (!/^[\w-]+$/.test(key)) {
+    console.error("[email] RESEND_API_KEY contains invalid characters");
+    return { status: "failed", reason: "key_malformed" };
   }
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -31,6 +56,7 @@ async function send(mail: Mail): Promise<SendResult> {
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        "User-Agent": "contact-form/1.0", // Resend rejects requests without one
         "Idempotency-Key": mail.idempotencyKey,
       },
       body: JSON.stringify({
@@ -44,14 +70,22 @@ async function send(mail: Mail): Promise<SendResult> {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      console.error(`[email] Resend error ${res.status}: ${await res.text()}`);
-      return "failed";
+      const body = await res.text();
+      console.error(`[email] Resend error ${res.status}: ${body}`);
+      return { status: "failed", reason: failureReason(res.status, body) };
     }
-    return "sent";
+    return { status: "sent" };
   } catch (err) {
     console.error("[email] Network error", err);
-    return "failed";
+    return { status: "failed", reason: "network_error" };
   }
+}
+
+/** The team alert matters most, so retry it from the shared sender if ours is rejected. */
+async function sendToTeam(mail: Mail): Promise<Outcome> {
+  const first = await send(mail);
+  if (first.reason !== "sender_not_verified" && first.reason !== "sender_invalid") return first;
+  return send({ ...mail, idempotencyKey: `${mail.idempotencyKey}-shared` }, SHARED_FROM);
 }
 
 function layout(title: string, body: string) {
@@ -110,9 +144,9 @@ ${fields.map(([l, v]) => row(l, l === "Email" ? `<a href="mailto:${esc(v)}" styl
   );
   const customerText = `Hello ${firstName},\n\nThank you for your interest in SEHATONE. Your request has reached our team, and someone will contact you on ${d.countryCode} ${d.phone} or at this email address to understand your requirements and arrange a demo.\n\nIf you would like to add anything in the meantime, simply reply to this email.\n\nRegards,\nTeam SEHATONE\n\nReference: ${id}`;
 
-  const [notify, confirm] = await Promise.all([
+  const [team, customer] = await Promise.all([
     business.length
-      ? send({
+      ? sendToTeam({
           to: business,
           subject: `New demo request — ${d.fullName}${d.organization ? `, ${d.organization}` : ""}`,
           html: teamHtml,
@@ -120,8 +154,8 @@ ${fields.map(([l, v]) => row(l, l === "Email" ? `<a href="mailto:${esc(v)}" styl
           replyTo: d.email,
           idempotencyKey: `${id}-team`,
         })
-      : (console.warn("[email] BUSINESS_EMAIL not set — team notification skipped"), Promise.resolve<SendResult>("skipped")),
-    !confirmCustomer ? Promise.resolve<SendResult>("skipped") : send({
+      : (console.warn("[email] BUSINESS_EMAIL not set — team notification skipped"), Promise.resolve<Outcome>({ status: "skipped", reason: "recipient_missing" })),
+    !confirmCustomer ? Promise.resolve<Outcome>({ status: "skipped" }) : send({
       to: [d.email],
       subject: "Thank you for contacting SEHATONE",
       html: customerHtml,
@@ -131,5 +165,5 @@ ${fields.map(([l, v]) => row(l, l === "Email" ? `<a href="mailto:${esc(v)}" styl
     }),
   ]);
 
-  return { notify, confirm };
+  return { notify: team.status, confirm: customer.status, reason: team.reason };
 }

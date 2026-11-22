@@ -45,9 +45,9 @@ async function deliverWithoutDatabase(d: InquiryInput, ipHash: string) {
   if (fallbackLimited(ipHash)) {
     return json(429, { ok: false, message: "Too many requests. Please try again later or contact us directly." });
   }
-  const { notify } = await sendInquiryEmails(d, randomUUID(), new Date(), { confirmCustomer: false });
+  const { notify, reason } = await sendInquiryEmails(d, randomUUID(), new Date(), { confirmCustomer: false });
   if (notify !== "sent") {
-    return json(503, { ok: false, message: "We couldn't submit your request online right now." });
+    return json(503, { ok: false, code: reason, message: "We couldn't submit your request online right now." });
   }
   return json(201, {
     ok: true,
