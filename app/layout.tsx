@@ -1,26 +1,33 @@
 import type { Metadata, Viewport } from "next";
-import { Newsreader, IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { site, isIndexable } from "@/lib/site";
 import { JsonLd } from "@/lib/seo";
 import { Analytics } from "@/components/Analytics";
 import "./globals.css";
 
-const display = Newsreader({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  weight: ["400"],
+// Fonts are committed (latin subset, SIL OFL) rather than fetched with next/font/google: Google
+// sometimes returns URLs without a file extension, which crashes the Next.js 15 build.
+const display = localFont({
+  src: [
+    { path: "./fonts/newsreader-regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/newsreader-italic.woff2", weight: "400", style: "italic" },
+  ],
   variable: "--font-display",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
-const sans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const sans = localFont({
+  src: "./fonts/ibm-plex-sans-variable.woff2",
+  weight: "400 600",
+  style: "normal",
   variable: "--font-sans",
   display: "swap",
 });
-const mono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const mono = localFont({
+  src: [
+    { path: "./fonts/ibm-plex-mono-regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm-plex-mono-medium.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-mono",
   display: "swap",
   preload: false, // used only for small labels; keep it off the critical path
